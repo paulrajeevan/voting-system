@@ -8,16 +8,23 @@ Built with a modern, animated light theme based on the DreamSpace Academy Purple
 
 ## 🚀 Key Features
 
-*   **Google OAuth Authentication:** Secure domain-gated login restricted strictly to `@dreamspace.academy` accounts.
-*   **Portfolio Submission:** Upload and update personal portfolio site details (Title, URL, and Description).
-*   **Ranked Voting System:** Users assign their top 3 portfolio choices:
+*   **Dual Authentication & Onboarding:**
+    *   **Google OAuth:** Secure domain-gated login for `@dreamspace.academy` accounts. First-time users select whether they are a Student or Staff member.
+    *   **Credentials Login (Email & Password):** A username and password form on the login page — used by **Administrators** and students manually provisioned by the Admin (who may lack a `@dreamspace.academy` email).
+*   **Role-Based Workspaces:**
+    *   **Students:** Upload/update personal portfolio details and cast 3-tier ranked votes.
+    *   **Staff:** Monitor aggregate system activity (vote counts, turnout). Requires Administrator approval. Cannot vote or upload portfolios.
+    *   **Admins:** Log in with credentials. Manage results release, approve staff roles, and provision student credentials for non-domain users.
+*   **Ranked Voting System (Students Only):** Students assign their top 3 portfolio choices:
     *   **1st Choice:** 5 points
     *   **2nd Choice:** 3 points
     *   **3rd Choice:** 2 points
     *   *Self-voting is allowed.*
-*   **Admin Dashboard:** Exclusive toggle to release/hide live results.
-*   **Dynamic Leaderboard:** Interactive results scoreboard shown on the Home Screen after admin release.
-*   **Responsive & Animated Design:** Clean light-mode layouts optimized across mobile, tablet, and desktop devices, styled with smooth micro-animations.
+*   **Guaranteed Voting Anonymity:** No one — including staff and administrators — can see who voted for which portfolio. Individual ballot records are protected by database-level Row Level Security. Monitoring and scoreboards are served exclusively through anonymised aggregate views.
+*   **Admin Dashboard:** Toggle results release, approve pending staff members, and provision credentials for non-domain students.
+*   **Points-Only Scoreboard:** When released by the admin, a leaderboard displays each portfolio's **total points**, ordered highest to lowest. No voter names or ballot choices are ever shown.
+*   **Activity Monitoring:** Aggregate stats (total voters, votes cast) accessible to approved staff and admins — with no individual ballot visibility.
+*   **Responsive & Animated Design:** Clean light-mode layouts optimized across mobile, tablet, and desktop, with smooth micro-animations.
 
 ---
 

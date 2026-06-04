@@ -15,17 +15,32 @@ To coordinate the team's efforts, individual detailed documentation files have b
 
 ## 1. Project Overview & Requirements
 
-*   **Target Audience:** DreamSpace Academy students/staff.
-*   **Authentication:** Strictly Google OAuth restricted to emails ending with `@dreamspace.academy`.
-*   **Portfolio Management:** Users can upload their portfolio site (Title, URL, Description, and preview screenshot/metadata).
-*   **Voting System:**
-    *   Each user has exactly 3 votes.
+*   **Target Audience:** DreamSpace Academy students and staff.
+*   **Authentication & Onboarding:**
+    *   Google OAuth login restricted strictly to `@dreamspace.academy` domain emails.
+    *   Credentials-based Login (Username/Email & Password) for students manually provisioned by an Administrator.
+    *   **Onboarding Flow:** For Google OAuth logins, on first sign-in, users select whether they are a **Student** or **Staff** member. Credentials-based logins bypass onboarding since they are pre-configured as Student.
+*   **Role Definitions & Permissions:**
+    *   **Student:**
+        *   Approved upon selection during onboarding or when manually provisioned by Admin (`role_approved = true`).
+        *   Has rights to add/edit their own single portfolio site details.
+        *   Has voting rights (3-tier ranked choice).
+    *   **Staff:**
+        *   Initially set to pending status (`role_approved = false`) on onboarding.
+        *   No portfolio uploading rights and no voting rights.
+        *   Only after an administrator manually approves/accepts their role, they are granted rights to access the system and monitor activities.
+    *   **Administrator:**
+        *   Pre-configured role (`is_admin = true` or `role = 'admin'`).
+        *   Has rights to release results, approve pending Staff roles, and **provision custom Student credentials** (Username & Password) for students without a `@dreamspace.academy` email.
+*   **Voting System (Students Only):**
+    *   Each student has exactly 3 votes.
     *   Rank 1 (1st Choice) = **5 points**
     *   Rank 2 (2nd Choice) = **3 points**
     *   Rank 3 (3rd Choice) = **2 points**
-    *   Users **are allowed** to vote for their own portfolio.
-    *   A user cannot vote for the same portfolio multiple times.
-*   **Results:** Aggregated and shown on the home screen *only* after an administrator releases them.
+    *   Students **are allowed** to vote for their own portfolio.
+    *   A student cannot vote for the same portfolio multiple times.
+*   **Staff Activity Monitoring:** Approved staff members can view overall submissions, voter turnout, and voting statistics.
+*   **Results:** Aggregated and shown on the home screen to general users *only* after an administrator releases them.
 *   **Aesthetics:** Sleek, modern Light-Only Theme utilizing the DreamSpace Academy branding palette:
     *   **Primary Purple:** `#7B1FA2` (Indigo/Purple)
     *   **Accent Orange:** `#FF6F00` (Vibrant Orange)
@@ -59,10 +74,13 @@ create table public.profiles (
   full_name text,
   avatar_url text,
   is_admin boolean default false,
+  role text check (role in ('student', 'staff', 'admin')),
+  role_approved boolean default false,
+  is_admin_created boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   
-  -- Database constraint to enforce domain on DB level
-  constraint dreamspace_email_check check (email like '%@dreamspace.academy')
+  -- Database constraint to enforce domain on DB level (bypass if admin-created)
+  constraint dreamspace_email_check check (email like '%@dreamspace.academy' or is_admin_created = true)
 );
 ```
 
@@ -163,17 +181,22 @@ A high-fidelity Light Theme using custom properties in `src/index.css`:
 ## 5. Security Policies (Row Level Security)
 
 1.  **Profiles:**
-    *   Read: All authenticated users can read all profiles.
-    *   Write: Users can only write/update their own profile.
+    *   Read: All authenticated users with approved roles (or admins, or self) can view profiles. Unapproved users can only view their own profile.
+    *   Write: Users can only insert their own profile on signup. Updates to own profile allowed, excluding `role`, `role_approved`, `is_admin`, and `is_admin_created`. Admins can update any profile to change approval status.
 2.  **Portfolios:**
-    *   Read: All authenticated users can view portfolios.
-    *   Write: Authenticated users can insert/update their own portfolio.
-3.  **Votes:**
-    *   Read: Authenticated users can read their own votes. Admin can read all votes.
-    *   Write: Authenticated users can insert/update/delete their own votes *unless* the results have been finalized/released.
-4.  **System Settings:**
-    *   Read: Anyone (even anonymous or authenticated users) can read the status of `results_released`.
-    *   Write: Only administrators (`is_admin = true` in profiles) can update settings.
+    *   Read: All approved users (students, staff, or admins) can view portfolios. Unapproved staff cannot.
+    *   Write: Only approved Students (`role = 'student'` and `role_approved = true`) can create, edit, or delete their own portfolio. Staff and Admins cannot upload portfolios.
+3.  **Votes — Strict Anonymity:**
+    *   Read: Each student can only read their **own** ballot rows (`auth.uid() = voter_id`). **No other role — including staff and admins — has direct SELECT access to the `votes` table.** Monitoring stats are served via `public.voting_stats` aggregate view; the scoreboard via `public.results_view` (total points per portfolio only).
+    *   Write: Only approved Students can cast or modify votes, and only while `results_released = false`. Staff and Admins cannot vote.
+4.  **Scoreboard / Results:**
+    *   When `results_released = true`, ALL authenticated users may query `public.results_view`.
+    *   `results_view` returns: **Portfolio Title, Total Points** — ordered by `total_points DESC`. Individual voter identities and ballot choices are never included.
+5.  **System Settings:**
+    *   Read: Anyone (including anonymous users) can read `results_released`.
+    *   Write: Only administrators (`is_admin = true` or `role = 'admin'`) can update settings.
+6.  **Admin Authentication:**
+    *   Admins log in via Username (email) and Password using Supabase Auth. Their accounts bypass the `@dreamspace.academy` domain restriction at the auth layer.
 
 ---
 
@@ -183,36 +206,41 @@ To develop this project collaboratively, the work is divided into four defined r
 
 ### Role A: Database Engineer (1 Person)
 **Responsibilities:**
-*   **Database Schema & Provisioning:** Execute table setup (`profiles`, `portfolios`, `votes`, `system_settings`) in Supabase.
-*   **Security & RLS Policies:** Implement Row Level Security (RLS) policies to protect votes, restrict edits, and allow public views where needed.
-*   **Triggers & DB Constraints:** Enforce constraints such as the `@dreamspace.academy` email domain check on the database level, and strict rank-points matching.
-*   **Collaboration:** Provide connection credentials/API routes and guide Frontend developers on database structure and column names.
+*   **Database Schema & Provisioning:** Execute table setup including `profiles` table updates with `role`, `role_approved`, and `is_admin_created` columns.
+*   **Security & RLS Policies:** Implement RLS so that the `votes` table can only be read by the voter themselves (`auth.uid() = voter_id`). No staff or admin has direct `SELECT` access to `votes`.
+*   **Aggregate Views:** Create `public.voting_stats` (total voter count, total votes cast) and `public.results_view` (portfolio title + total points, ordered by `total_points DESC`) to serve monitoring and scoreboard data without exposing individual ballots.
+*   **Admin Auth Setup:** Pre-configure Admin accounts in Supabase Auth with email/password credentials and set `is_admin = true` in their profile record.
+*   **Triggers & DB Constraints:** Enforce domain constraint checks (`email like '%@dreamspace.academy' or is_admin_created = true`) and role check constraints on the database level.
 
 ### Role B: Frontend Team (2 Persons)
 **Responsibilities:**
-*   **Developer 1 (Auth, Shell & Admin Features):**
+*   **Developer 1 (Auth, Onboarding, Shell & Admin Features):**
     *   Initialize the Vite + React codebase.
-    *   Implement Google OAuth flow and block sign-in/profile creation for non-DreamSpace domains.
-    *   Build the Admin Dashboard page where results can be toggled (released/unreleased).
-*   **Developer 2 (Gallery, Portfolios & Voting UX):**
-    *   Create the main dashboard/gallery where users see portfolio cards.
-    *   Implement the portfolio upload/editing form.
-    *   Build the interactive "My Ballot" voting system (allowing drag-and-drop or rank selection: 1st, 2nd, 3rd choices).
+    *   Build the Login Page with dual inputs: "Sign in with Google" button AND Username/Password form fields.
+    *   Implement Google OAuth path (domain check, role onboarding) and Credentials path (bypasses domain check for `is_admin_created` or admin accounts).
+    *   Ensure Admin credentials login routes directly to the Admin Dashboard.
+    *   Build the Onboarding Role Selection screen (Student vs Staff) and the Pending Approval screen for staff.
+    *   Build the Admin Dashboard: toggle `results_released`, Staff Approval Panel, and Student Credentials Provisioning Panel.
+*   **Developer 2 (Gallery, Portfolios, Voting UX, Scoreboard & Staff Monitoring):**
+    *   Create the main gallery where users see portfolio cards.
+    *   Implement the student-only portfolio upload/editing form.
+    *   Build the student-only interactive "My Ballot" voting system.
+    *   Build the **Points-Only Scoreboard / Leaderboard:** queries `public.results_view` and renders a ranked list showing only Portfolio Title and Total Points, ordered highest to lowest. Scoreboard is only shown when `results_released = true`.
+    *   Build the Staff Activity Monitoring view using `public.voting_stats` (aggregate counts only — no individual ballot data).
 *   **Shared Frontend Tasks:**
     *   Build custom Vanilla CSS classes inside `index.css` following the premium DreamSpace light-theme design variables.
 
 ### Role C: QA Test & Git Issue Manager (1 Person)
 **Responsibilities:**
 *   **Version Control & Issue Management:**
-    *   Set up the GitHub Repository.
-    *   Create GitHub Issues for each deliverable task listed above, tagging the respective assignees.
-    *   Set up pull request templates and manage branching strategy (e.g. `main` <- `dev` <- feature branches).
+    *   Set up the GitHub Repository and create issues for role onboarding, pending views, approval flows, credentials provisioning, and anonymity enforcement.
 *   **Testing Checklist:**
-    *   Write integration/unit tests for validation checks.
-    *   Verify edge cases (e.g. attempting to vote twice for the same portfolio, voting for a 4th portfolio, uploading without domain email).
-    *   Conduct manual UI testing on light mode layout across multiple screen widths.
-    *   Report bugs as Git Issues and verify bug fixes before code is merged into `main`.
-
----
-
-
+    *   Verify role selection behavior on first signup (Google OAuth path).
+    *   Verify Admin can log in using Username and Password and is routed to the Admin Dashboard.
+    *   Verify that credentials-login students bypass the domain check and land on the Student Dashboard.
+    *   Verify that staff cannot upload portfolios or vote.
+    *   Verify that staff cannot access raw vote data — only aggregate stats.
+    *   Verify that no user (including admins) can query other users' vote records directly.
+    *   Verify that `public.results_view` only returns Title + Total Points, with no voter details.
+    *   Verify that the scoreboard renders ordered by highest points and is hidden until `results_released = true`.
+    *   Verify that admins can approve staff roles, and approved staff can immediately access aggregate monitoring.
