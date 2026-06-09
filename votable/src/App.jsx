@@ -21,6 +21,24 @@ function formatUrlDisplay(url) {
   return cleaned;
 }
 
+// Validate a URL — must start with https:// or http:// and have a valid hostname
+function validateUrl(url) {
+  if (!url || !url.trim()) return 'Portfolio URL is required.';
+  const trimmed = url.trim();
+  if (!trimmed.startsWith('https://') && !trimmed.startsWith('http://')) {
+    return 'URL must begin with https:// or http://';
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (!parsed.hostname || parsed.hostname.indexOf('.') === -1) {
+      return 'URL must include a valid domain (e.g. example.com)';
+    }
+  } catch {
+    return 'Please enter a valid URL (e.g. https://myportfolio.com)';
+  }
+  return null; // valid
+}
+
 export default function App() {
   // Navigation & User Global States
   const [user, setUser] = useState(null);
@@ -32,6 +50,7 @@ export default function App() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [portfolio, setPortfolio] = useState({ title: '', url: '', description: '', uploaded: false });
+  const [urlError, setUrlError] = useState(null);
   
   // Admin & Settings States
   const [systemSettings, setSystemSettings] = useState({ results_released: false, voting_allowed: false, limit_top_three: false });
@@ -439,11 +458,13 @@ export default function App() {
 
   const handlePortfolioSubmit = async (e) => {
     e.preventDefault();
-    const formattedUrl = formatUrlHref(portfolio.url);
-    if (!formattedUrl.startsWith('https://') && !formattedUrl.startsWith('http://')) {
-      alert("Validation Failure: URLs must initiate with http:// or https:// protocol.");
+    const urlValidationError = validateUrl(portfolio.url);
+    if (urlValidationError) {
+      setUrlError(urlValidationError);
       return;
     }
+    setUrlError(null);
+    const formattedUrl = formatUrlHref(portfolio.url);
 
     setLoading(true);
     const { data: existingPort } = await supabase
@@ -744,8 +765,32 @@ export default function App() {
                 <div style={{ marginBottom: '12px' }}>
                   <input type="text" placeholder="Portfolio / Application Name" value={portfolio.title} onChange={(e) => setPortfolio({ ...portfolio, title: e.target.value })} required />
                 </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <input type="text" placeholder="Portfolio URL (e.g. https://myportfolio.com or http://localhost:5173)" value={portfolio.url} onChange={(e) => setPortfolio({ ...portfolio, url: e.target.value })} required />
+                <div style={{ marginBottom: urlError ? '4px' : '12px' }}>
+                  <input
+                    type="text"
+                    placeholder="e.g. https://myportfolio.vercel.app"
+                    value={portfolio.url}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPortfolio({ ...portfolio, url: val });
+                      if (urlError) setUrlError(validateUrl(val));
+                    }}
+                    onBlur={(e) => setUrlError(validateUrl(e.target.value))}
+                    style={{
+                      borderColor: urlError ? '#d32f2f' : undefined,
+                      background: urlError ? 'rgba(211,47,47,0.04)' : undefined
+                    }}
+                    required
+                  />
+                  {urlError && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '1rem' }}>⚠️</span>
+                      <span style={{ fontSize: '0.78rem', color: '#d32f2f', fontWeight: 500 }}>{urlError}</span>
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: urlError ? '0' : '6px', lineHeight: 1.4 }}>
+                    ✅ Accepted formats: <code style={{ background: 'rgba(0,0,0,0.06)', padding: '1px 4px', borderRadius: '4px' }}>https://example.com</code> or <code style={{ background: 'rgba(0,0,0,0.06)', padding: '1px 4px', borderRadius: '4px' }}>https://portfolio.vercel.app</code>
+                  </div>
                 </div>
                 <div style={{ marginBottom: '20px' }}>
                   <textarea placeholder="Brief abstract overview description..." rows="3" value={portfolio.description} onChange={(e) => setPortfolio({ ...portfolio, description: e.target.value })} required />
