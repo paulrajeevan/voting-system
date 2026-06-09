@@ -1,7 +1,25 @@
 // src/App.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { createClient } from '@supabase/supabase-js';
+
+// Clean and format a URL to ensure it starts with http:// or https:// and has no trailing slashes or hashes
+function formatUrlHref(url) {
+  if (!url) return '';
+  let cleaned = url.trim().replace(/[/#]+$/, '');
+  if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+    return `https://${cleaned}`;
+  }
+  return cleaned;
+}
+
+// Clean a URL for display purposes, removing protocol and trailing slashes/hashes
+function formatUrlDisplay(url) {
+  if (!url) return '';
+  let cleaned = url.trim().replace(/[/#]+$/, '');
+  cleaned = cleaned.replace(/^(https?:\/\/)?(www\.)?/, '');
+  return cleaned;
+}
 
 export default function App() {
   // Navigation & User Global States
@@ -16,7 +34,7 @@ export default function App() {
   const [portfolio, setPortfolio] = useState({ title: '', url: '', description: '', uploaded: false });
   
   // Admin & Settings States
-  const [systemSettings, setSystemSettings] = useState({ results_released: false, voting_allowed: false });
+  const [systemSettings, setSystemSettings] = useState({ results_released: false, voting_allowed: false, limit_top_three: false });
   const [pendingStaff, setPendingStaff] = useState([]);
   const [provisionForm, setProvisionForm] = useState({ name: '', email: '', password: '' });
   const [adminStats, setAdminStats] = useState({ total_students: 0, total_portfolios: 0 });
@@ -74,10 +92,11 @@ export default function App() {
     return () => {
       subscription?.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync user details and route based on database profile roles
-  const syncUserAndNavigate = async (authUser) => {
+  async function syncUserAndNavigate(authUser) {
     setUser(authUser);
     
     // Fetch profile
@@ -150,12 +169,12 @@ export default function App() {
   };
 
   // Fetch system settings
-  const fetchSystemSettings = async () => {
+  async function fetchSystemSettings() {
     const { data } = await supabase
       .from('system_settings')
       .select('*');
     if (data) {
-      const settings = { results_released: false, voting_allowed: false };
+      const settings = { results_released: false, voting_allowed: false, limit_top_three: false };
       data.forEach(item => {
         settings[item.key] = item.value;
       });
@@ -164,7 +183,7 @@ export default function App() {
   };
 
   // Load student dashboard data
-  const loadStudentWorkspace = async (profile) => {
+  async function loadStudentWorkspace(profile) {
     // 1. Fetch user portfolio
     const { data: port } = await supabase
       .from('portfolios')
@@ -224,7 +243,7 @@ export default function App() {
   };
 
   // Fetch candidates gallery
-  const fetchCandidates = async () => {
+  async function fetchCandidates() {
     const { data: ports } = await supabase
       .from('portfolios')
       .select(`
@@ -253,7 +272,7 @@ export default function App() {
   };
 
   // Load staff monitoring hub
-  const loadStaffMonitor = async () => {
+  async function loadStaffMonitor() {
     setLoading(true);
     await fetchCandidates();
 
@@ -282,7 +301,7 @@ export default function App() {
   };
 
   // Load admin portal
-  const loadAdminDashboard = async () => {
+  async function loadAdminDashboard() {
     setLoading(true);
     await fetchSystemSettings();
 
@@ -317,7 +336,7 @@ export default function App() {
   };
 
   // Load scoreboard
-  const loadLeaderboard = async () => {
+  async function loadLeaderboard() {
     setLoading(true);
     const { data } = await supabase
       .from('results_view')
@@ -378,8 +397,9 @@ export default function App() {
 
   const handlePortfolioSubmit = async (e) => {
     e.preventDefault();
-    if (!portfolio.url.startsWith('https://')) {
-      alert("Validation Failure: URLs must initiate with secure https:// layer framework.");
+    const formattedUrl = formatUrlHref(portfolio.url);
+    if (!formattedUrl.startsWith('https://') && !formattedUrl.startsWith('http://')) {
+      alert("Validation Failure: URLs must initiate with http:// or https:// protocol.");
       return;
     }
 
@@ -396,7 +416,7 @@ export default function App() {
         .from('portfolios')
         .update({
           title: portfolio.title,
-          portfolio_url: portfolio.url,
+          portfolio_url: formattedUrl,
           description: portfolio.description
         })
         .eq('id', existingPort.id);
@@ -407,7 +427,7 @@ export default function App() {
         .insert([{
           user_id: user.id,
           title: portfolio.title,
-          portfolio_url: portfolio.url,
+          portfolio_url: formattedUrl,
           description: portfolio.description
         }]);
       err = error;
@@ -417,7 +437,7 @@ export default function App() {
     if (err) {
       alert(`Portfolio Submission Failed: ${err.message}`);
     } else {
-      setPortfolio(prev => ({ ...prev, uploaded: true }));
+      setPortfolio(prev => ({ ...prev, url: formattedUrl, uploaded: true }));
       await fetchCandidates();
       alert("Portfolio submitted successfully! Entrance to voting zone authorized.");
     }
@@ -426,20 +446,30 @@ export default function App() {
   const assignRankVote = (candidateId, points) => {
     const currentBallot = { ...ballot };
     
+    // Check if the candidate is already selected for this specific rank
+    const isAlreadySelectedForThisRank = 
+      (points === 5 && currentBallot.points5 === candidateId) ||
+      (points === 3 && currentBallot.points3 === candidateId) ||
+      (points === 2 && currentBallot.points2 === candidateId);
+
+    // Remove candidate from any other rank first
     if (currentBallot.points5 === candidateId) currentBallot.points5 = null;
     if (currentBallot.points3 === candidateId) currentBallot.points3 = null;
     if (currentBallot.points2 === candidateId) currentBallot.points2 = null;
 
-    if (points === 5) currentBallot.points5 = candidateId;
-    if (points === 3) currentBallot.points3 = candidateId;
-    if (points === 2) currentBallot.points2 = candidateId;
+    // If it was not already selected for this rank, assign it (toggles off if it was)
+    if (!isAlreadySelectedForThisRank) {
+      if (points === 5) currentBallot.points5 = candidateId;
+      if (points === 3) currentBallot.points3 = candidateId;
+      if (points === 2) currentBallot.points2 = candidateId;
+    }
 
     setBallot(currentBallot);
   };
 
   const handleBallotSubmit = async () => {
-    if (!ballot.points5 || !ballot.points3 || !ballot.points2) {
-      alert("Ballot Invalid: You must completely map 1st, 2nd, and 3rd selections.");
+    if (!ballot.points5 && !ballot.points3 && !ballot.points2) {
+      alert("Ballot Invalid: You must select at least one choice (1st, 2nd, or 3rd) before submitting.");
       return;
     }
 
@@ -457,11 +487,16 @@ export default function App() {
     }
 
     // Insert new votes
-    const votesToInsert = [
-      { voter_id: user.id, portfolio_id: ballot.points5, rank: 1, points: 5 },
-      { voter_id: user.id, portfolio_id: ballot.points3, rank: 2, points: 3 },
-      { voter_id: user.id, portfolio_id: ballot.points2, rank: 3, points: 2 }
-    ];
+    const votesToInsert = [];
+    if (ballot.points5) {
+      votesToInsert.push({ voter_id: user.id, portfolio_id: ballot.points5, rank: 1, points: 5 });
+    }
+    if (ballot.points3) {
+      votesToInsert.push({ voter_id: user.id, portfolio_id: ballot.points3, rank: 2, points: 3 });
+    }
+    if (ballot.points2) {
+      votesToInsert.push({ voter_id: user.id, portfolio_id: ballot.points2, rank: 3, points: 2 });
+    }
 
     const { error: insertError } = await supabase
       .from('votes')
@@ -545,7 +580,7 @@ export default function App() {
       auth: { persistSession: false }
     });
 
-    const { data, error } = await tempClient.auth.signUp({
+    const { error } = await tempClient.auth.signUp({
       email: provisionForm.email,
       password: provisionForm.password,
       options: {
@@ -668,7 +703,7 @@ export default function App() {
                   <input type="text" placeholder="Portfolio / Application Name" value={portfolio.title} onChange={(e) => setPortfolio({ ...portfolio, title: e.target.value })} required />
                 </div>
                 <div style={{ marginBottom: '12px' }}>
-                  <input type="url" placeholder="Production URL (https://... required)" value={portfolio.url} onChange={(e) => setPortfolio({ ...portfolio, url: e.target.value })} required />
+                  <input type="text" placeholder="Portfolio URL (e.g. https://myportfolio.com or http://localhost:5173)" value={portfolio.url} onChange={(e) => setPortfolio({ ...portfolio, url: e.target.value })} required />
                 </div>
                 <div style={{ marginBottom: '20px' }}>
                   <textarea placeholder="Brief abstract overview description..." rows="3" value={portfolio.description} onChange={(e) => setPortfolio({ ...portfolio, description: e.target.value })} required />
@@ -700,13 +735,19 @@ export default function App() {
                         {expandedCard === cand.id ? 'Hide Abstract' : 'Show More'}
                       </button>
                     </div>
-
-                    {expandedCard === cand.id && (
-                      <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
-                        <a href={cand.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#0066cc', display: 'block', marginBottom: '6px' }}>{cand.url}</a>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-dark)', lineHeight: 1.4 }}>{cand.description}</p>
-                      </div>
-                    )}
+                      {expandedCard === cand.id && (
+                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                          <a
+                            href={formatUrlHref(cand.url)}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ fontSize: '0.85rem', color: '#0066cc', display: 'block', marginBottom: '6px', wordBreak: 'break-all' }}
+                          >
+                            🔗 {formatUrlDisplay(cand.url)}
+                          </a>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-dark)', lineHeight: 1.4 }}>{cand.description}</p>
+                        </div>
+                      )}
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '12px' }}>
                       <button type="button" disabled={!systemSettings.voting_allowed} className={`btn-liquid-glass ${ballot.points5 === cand.id ? 'selected-5' : ''}`} onClick={() => assignRankVote(cand.id, 5)}>1st Choice (5p)</button>
@@ -766,7 +807,14 @@ export default function App() {
                 <div key={cand.id} style={{ background: '#fff', padding: '10px 14px', borderRadius: '10px', marginBottom: '8px', border: '1px solid rgba(0,0,0,0.03)' }}>
                   <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{cand.title}</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>by {cand.author}</div>
-                  <a href={cand.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: '#0066cc', display: 'block', marginTop: '4px' }}>{cand.url}</a>
+                  <a
+                    href={formatUrlHref(cand.url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: '0.75rem', color: '#0066cc', display: 'block', marginTop: '4px', wordBreak: 'break-all' }}
+                  >
+                    🔗 {formatUrlDisplay(cand.url)}
+                  </a>
                 </div>
               ))}
             </div>
@@ -798,9 +846,13 @@ export default function App() {
               <span style={{ fontSize: '0.9rem' }}>Authorize Live Voting Booth</span>
               <input type="checkbox" style={{ width: '24px', height: '24px', cursor: 'pointer' }} checked={systemSettings.voting_allowed} onChange={(e) => handleSettingToggle('voting_allowed', e.target.checked)} />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
               <span style={{ fontSize: '0.9rem' }}>Release Scoring Leaderboard</span>
               <input type="checkbox" style={{ width: '24px', height: '24px', cursor: 'pointer' }} checked={systemSettings.results_released} onChange={(e) => handleSettingToggle('results_released', e.target.checked)} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem' }}>Limit Leaderboard to Top 3 Profiles</span>
+              <input type="checkbox" style={{ width: '24px', height: '24px', cursor: 'pointer' }} checked={systemSettings.limit_top_three} onChange={(e) => handleSettingToggle('limit_top_three', e.target.checked)} />
             </div>
           </div>
 
@@ -843,21 +895,24 @@ export default function App() {
           {resultsViewData.length === 0 ? (
             <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No portfolio votes recorded yet.</p>
           ) : (
-            resultsViewData.map((res, index) => {
-              const maxPoints = Math.max(1, ...resultsViewData.map(r => r.total_points));
-              const widthPct = (res.total_points / maxPoints) * 100;
-              return (
-                <div key={res.portfolio_id} style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', fontWeight: '600', marginBottom: '6px' }}>
-                    <span>{index + 1}. {res.title}</span>
-                    <span style={{ color: 'var(--brand-purple)' }}>{res.total_points} pts</span>
+            (() => {
+              const displayData = systemSettings.limit_top_three ? resultsViewData.slice(0, 3) : resultsViewData;
+              const maxPoints = Math.max(1, ...displayData.map(r => r.total_points));
+              return displayData.map((res, index) => {
+                const widthPct = (res.total_points / maxPoints) * 100;
+                return (
+                  <div key={res.portfolio_id} style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', fontWeight: '600', marginBottom: '6px' }}>
+                      <span>{index + 1}. {res.title}</span>
+                      <span style={{ color: 'var(--brand-purple)' }}>{res.total_points} pts</span>
+                    </div>
+                    <div style={{ background: '#f5f5f7', height: '10px', borderRadius: '5px', overflow: 'hidden' }}>
+                      <div style={{ background: 'linear-gradient(90deg, var(--brand-purple), var(--brand-orange))', height: '100%', width: `${widthPct}%`, transition: 'width 1s ease' }}></div>
+                    </div>
                   </div>
-                  <div style={{ background: '#f5f5f7', height: '10px', borderRadius: '5px', overflow: 'hidden' }}>
-                    <div style={{ background: 'linear-gradient(90deg, var(--brand-purple), var(--brand-orange))', height: '100%', width: `${widthPct}%`, transition: 'width 1s ease' }}></div>
-                  </div>
-                </div>
-              );
-            })
+                );
+              });
+            })()
           )}
           
           <button type="button" className="btn-primary" style={{ marginTop: '20px' }} onClick={async () => {
