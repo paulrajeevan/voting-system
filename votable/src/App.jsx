@@ -56,7 +56,11 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        await syncUserAndNavigate(session.user);
+        if (event !== 'TOKEN_REFRESHED') {
+          await syncUserAndNavigate(session.user);
+        } else {
+          setUser(session.user);
+        }
       } else {
         setUser(null);
         setUserProfile(null);
@@ -176,11 +180,16 @@ export default function App() {
         uploaded: true
       });
     } else {
-      setPortfolio({
-        title: '',
-        url: '',
-        description: '',
-        uploaded: false
+      setPortfolio(prev => {
+        if (prev.title || prev.url || prev.description) {
+          return { ...prev, uploaded: false };
+        }
+        return {
+          title: '',
+          url: '',
+          description: '',
+          uploaded: false
+        };
       });
     }
 
@@ -194,13 +203,18 @@ export default function App() {
       .eq('voter_id', profile.id);
 
     if (userVotes) {
-      const userBallot = { points5: null, points3: null, points2: null };
-      userVotes.forEach(vote => {
-        if (vote.points === 5) userBallot.points5 = vote.portfolio_id;
-        if (vote.points === 3) userBallot.points3 = vote.portfolio_id;
-        if (vote.points === 2) userBallot.points2 = vote.portfolio_id;
+      setBallot(prev => {
+        if (prev.points5 || prev.points3 || prev.points2) {
+          return prev;
+        }
+        const userBallot = { points5: null, points3: null, points2: null };
+        userVotes.forEach(vote => {
+          if (vote.points === 5) userBallot.points5 = vote.portfolio_id;
+          if (vote.points === 3) userBallot.points3 = vote.portfolio_id;
+          if (vote.points === 2) userBallot.points2 = vote.portfolio_id;
+        });
+        return userBallot;
       });
-      setBallot(userBallot);
     }
 
     // Load settings
@@ -726,7 +740,7 @@ export default function App() {
       {currentView === 'STAFF_MONITOR' && (
         <div className="glass-container">
           <h2>Staff Monitoring Hub</h2>
-          <p className="subtitle">Anonymized macro transaction traffic telemetry inputs</p>
+          <p className="subtitle">Track voting participation and uploaded portfolios</p>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', textAlign: 'center', marginBottom: '24px' }}>
             <div style={{ background: '#fff', padding: '12px', borderRadius: '12px' }}>
