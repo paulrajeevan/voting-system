@@ -95,6 +95,48 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  if (!supabase) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: '#f5f5f7',
+        color: '#1d1d1f',
+        padding: '24px',
+        textAlign: 'center',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }}>
+        <div style={{
+          background: '#fff',
+          padding: '32px',
+          borderRadius: '24px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.05)',
+          maxWidth: '480px',
+          width: '100%',
+          border: '1px solid rgba(0,0,0,0.08)'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '16px' }}>⚠️</div>
+          <h2 style={{ marginBottom: '12px', color: '#d32f2f', fontSize: '1.4rem', fontWeight: 'bold' }}>Configuration Required</h2>
+          <p style={{ fontSize: '0.85rem', color: '#86868b', lineHeight: 1.5, marginBottom: '20px' }}>
+            Supabase connection credentials are missing. Please add the required environment variables in your Vercel Project Dashboard.
+          </p>
+          <div style={{ textAlign: 'left', background: '#f5f5f7', padding: '16px', borderRadius: '12px', fontSize: '0.8rem', fontFamily: 'monospace', color: '#333', lineHeight: 1.5 }}>
+            <strong>How to configure:</strong>
+            <ol style={{ margin: '8px 0 0 16px', padding: 0 }}>
+              <li>Go to <strong>Vercel Settings</strong> &rarr; <strong>Environment Variables</strong>.</li>
+              <li>Add <code>VITE_SUPABASE_URL</code> with your Supabase Project URL.</li>
+              <li>Add <code>VITE_SUPABASE_ANON_KEY</code> with your Supabase API anon key.</li>
+              <li>Redeploy your project.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Sync user details and route based on database profile roles
   async function syncUserAndNavigate(authUser) {
     setUser(authUser);
