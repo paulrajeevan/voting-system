@@ -182,6 +182,30 @@ export default function App() {
           {!portfolio.uploaded ? (
             <div className="glass-container">
               <h2>Portfolio Submission</h2>
+              
+              {/* MODIFIED VIEW: Authentic Session Tracker Row */}
+              {user?.email && (
+                <div style={{ 
+                  fontSize: '0.85rem', 
+                  color: 'var(--text-muted)', 
+                  background: 'rgba(0, 0, 0, 0.03)', 
+                  padding: '8px 12px', 
+                  borderRadius: '10px', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '6px',
+                  marginTop: '4px',
+                  marginBottom: '12px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  flexWrap: 'wrap',
+                  wordBreak: 'break-all'
+                }}>
+                  <span style={{ fontSize: '1rem' }}>👤</span>
+                  <span>Signed in as <strong style={{ color: 'var(--text-dark)' }}>{user.email}</strong></span>
+                </div>
+              )}
+
               <p className="subtitle">Please provide your live workspace criteria sequentially: Name, URL, and Description.</p>
               <form onSubmit={handlePortfolioSubmit}>
                 <div style={{ marginBottom: '12px' }}>
@@ -204,6 +228,14 @@ export default function App() {
                 </span>
               </div>
               <h2>Electoral Candidates</h2>
+              
+              {/* MODIFIED VIEW: Subtitle Reference Badge */}
+              {user?.email && (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '16px', wordBreak: 'break-all' }}>
+                  Connected as: <strong>{user.email}</strong>
+                </p>
+              )}
+
               <p className="subtitle">Cast 3-tier ballots anonymously. Expand entries to analyze submission details.</p>
 
               {candidates.map((cand) => (
