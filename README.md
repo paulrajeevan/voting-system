@@ -6,6 +6,12 @@ Built with a modern, animated light theme based on the DreamSpace Academy Purple
 
 ---
 
+## 🌐 Live Demo
+
+> **Deployed on Vercel:** [https://voting-system-ivtksriq3-paul-rajeevans-projects.vercel.app/](https://voting-system-ivtksriq3-paul-rajeevans-projects.vercel.app/)
+
+---
+
 ## 🚀 Key Features
 
 *   **Dual Authentication & Onboarding:**
