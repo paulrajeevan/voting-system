@@ -701,7 +701,7 @@ export default function App() {
 
       <header style={{ width: '100%', maxWidth: '600px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
         <div style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '1px' }}>
-          <span style={{ color: 'var(--brand-purple)' }}>DREAMSPACE</span> <span style={{ color: 'var(--brand-orange)' }}>PORTAL</span>
+          <span style={{ color: 'var(--brand-purple)' }}>VOTABLE</span> <span style={{ color: 'var(--brand-orange)' }}>PORTAL</span>
         </div>
         {user && (
           <button type="button" onClick={handleLogOut} className="btn-liquid-glass" style={{ padding: '6px 12px', borderRadius: '20px' }}>Sign Out</button>
@@ -710,7 +710,7 @@ export default function App() {
       
       {currentView === 'LOGIN' && (
         <div className="glass-container">
-          <h2 style={{ marginBottom: '6px', textAlign: 'center' }}>Dreamspace Gateway</h2>
+          <h2 style={{ marginBottom: '6px', textAlign: 'center' }}>Votable Gateway</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '24px' }}>Electoral Verification Infrastructure</p>
           
           <button type="button" className="btn-primary" style={{ background: '#fff', color: '#000', border: '1px solid #d2d2d7', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '20px' }} onClick={handleGoogleLogin}>
@@ -760,6 +760,30 @@ export default function App() {
           {!portfolio.uploaded ? (
             <div className="glass-container">
               <h2>Portfolio Submission</h2>
+              
+              {/* MODIFIED VIEW: Authentic Session Tracker Row */}
+              {user?.email && (
+                <div style={{ 
+                  fontSize: '0.85rem', 
+                  color: 'var(--text-muted)', 
+                  background: 'rgba(0, 0, 0, 0.03)', 
+                  padding: '8px 12px', 
+                  borderRadius: '10px', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '6px',
+                  marginTop: '4px',
+                  marginBottom: '12px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  flexWrap: 'wrap',
+                  wordBreak: 'break-all'
+                }}>
+                  <span style={{ fontSize: '1rem' }}>👤</span>
+                  <span>Signed in as <strong style={{ color: 'var(--text-dark)' }}>{user.email}</strong></span>
+                </div>
+              )}
+
               <p className="subtitle">Please provide your live workspace criteria sequentially: Name, URL, and Description.</p>
               <form onSubmit={handlePortfolioSubmit}>
                 <div style={{ marginBottom: '12px' }}>
@@ -806,6 +830,14 @@ export default function App() {
                 </span>
               </div>
               <h2>Electoral Candidates</h2>
+              
+              {/* MODIFIED VIEW: Subtitle Reference Badge */}
+              {user?.email && (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '16px', wordBreak: 'break-all' }}>
+                  Connected as: <strong>{user.email}</strong>
+                </p>
+              )}
+
               <p className="subtitle">Cast 3-tier ballots anonymously. Expand entries to analyze submission details.</p>
 
               {candidates.length === 0 ? (
