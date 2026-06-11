@@ -1,0 +1,967 @@
+openapi: 3.0.3
+info:
+  title: DreamSpace Portfolio Voting System API
+  description: |
+    API Specification for the DreamSpace Portfolio Voting System.
+    This application leverages Supabase, using its built-in authentication services (GoTrue) 
+    and RESTful database access (PostgREST over PostgreSQL). 
+
+    ### Security & Access Control
+    All REST database operations run through PostgREST and are secured via PostgreSQL Row Level Security (RLS) policies. 
+    Requests require two headers:
+    1. `apikey`: The Supabase anonymous client API key.
+    2. `Authorization: Bearer <JWT>`: The JSON Web Token issued by GoTrue during login.
+  version: 1.0.0
+servers:
+  - url: https://{project-id}.supabase.co
+    description: Supabase Production API Gateway
+    variables:
+      project-id:
+        default: example-voting-project
+        description: The unique identifier for your Supabase project instance.
+
+security:
+  - ApiKeyHeader: []
+    BearerAuth: []
+
+paths:
+  # --- AUTHENTICATION ---
+  /auth/v1/authorize:
+    get:
+      summary: Initiate Google OAuth Authorization
+      description: Redirects the user to Google's OAuth consent screen for domain-locked verification (`@dreamspace.academy`).
+      security:
+        - ApiKeyHeader: []
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [google]
+          example: google
+        - name: redirect_to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+          example: https://votable.dreamspace.academy
+      responses:
+        '302':
+          description: Temporary redirect to Google OAuth login screen.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: The Google OAuth target URI.
+
+  /auth/v1/token:
+    post:
+      summary: Authenticate User via Credentials
+      description: Exchanges username/email and password for a JWT session. Used by administrators and admin-created students.
+      security:
+        - ApiKeyHeader: []
+      parameters:
+        - name: grant_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [password]
+          example: password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User's login email identifier.
+                  example: admin@dreamspace.academy
+                password:
+                  type: string
+                  format: password
+                  description: User's password.
+                  example: supersecretpassword
+            example:
+              email: admin@dreamspace.academy
+              password: supersecretpassword
+      responses:
+        '200':
+          description: Successful authentication. Returns the session JWT token and user profile metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInN1YiI6IjE0YTFiZDZjLTc1ODMtNDViOC04NWVlLTdlNjA2ZTQ2NTkxNSIsImV4cCI6MTkwMDAwMDAwMH0.signature"
+                token_type: "bearer"
+                expires_in: 3600
+                refresh_token: "refreshtoken123abc"
+                user:
+                  id: "14a1bd6c-7583-45b8-85ee-7e606e465915"
+                  aud: "authenticated"
+                  role: "authenticated"
+                  email: "admin@dreamspace.academy"
+                  email_confirmed_at: "2026-06-11T12:00:00Z"
+                  phone: ""
+                  last_sign_in_at: "2026-06-11T14:00:00Z"
+                  user_metadata:
+                    full_name: "System Administrator"
+                    is_admin_created: false
+        '400':
+          description: Invalid email or password, or authentication restriction violation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+              example:
+                error: "invalid_grant"
+                error_description: "Invalid login credentials"
+
+  /auth/v1/signup:
+    post:
+      summary: Register Student Bypass Credentials
+      description: Allows administrators to provision accounts manually for students lacking a `@dreamspace.academy` domain email.
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: [] # Required if RLS or signup rules require admin roles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Non-domain email to be registered.
+                  example: student.extern@gmail.com
+                password:
+                  type: string
+                  format: password
+                  example: tempPassword123
+                options:
+                  type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        full_name:
+                          type: string
+                          example: External Student Name
+                        is_admin_created:
+                          type: boolean
+                          enum: [true]
+                          example: true
+            example:
+              email: student.extern@gmail.com
+              password: tempPassword123
+              options:
+                data:
+                  full_name: External Student Name
+                  is_admin_created: true
+      responses:
+        '200':
+          description: User registered successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  user_metadata:
+                    type: object
+              example:
+                id: "77d24a87-17cb-4b36-93ad-e53bfa70d10b"
+                email: "student.extern@gmail.com"
+                user_metadata:
+                  full_name: "External Student Name"
+                  is_admin_created: true
+        '400':
+          description: Registration rejected due to invalid fields or signup disabled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /auth/v1/logout:
+    post:
+      summary: Terminate User Session
+      description: Invalidate the active JWT session and sign out.
+      responses:
+        '204':
+          description: Session revoked successfully. No content returned.
+        '401':
+          description: Invalid token provided.
+
+  # --- DATABASE TABLES ---
+  /rest/v1/profiles:
+    get:
+      summary: Query User Profiles
+      description: |
+        Retrieves user registration and role information.
+        *   **Authenticated users with approved roles** can read all profile records.
+        *   **Unapproved users** can only query their own record (`auth.uid() = id`).
+      parameters:
+        - name: select
+          in: query
+          description: Selected fields wildcard or comma-separated list
+          schema:
+            type: string
+            default: "*"
+        - name: id
+          in: query
+          description: Filter by User UUID
+          schema:
+            type: string
+            example: eq.14a1bd6c-7583-45b8-85ee-7e606e465915
+        - name: role
+          in: query
+          description: Filter by user role
+          schema:
+            type: string
+            enum: [student, staff, admin]
+        - name: role_approved
+          in: query
+          description: Filter by approval status
+          schema:
+            type: string
+            example: eq.false
+      responses:
+        '200':
+          description: Success response.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Profile'
+              example:
+                - id: "14a1bd6c-7583-45b8-85ee-7e606e465915"
+                  email: "voter.one@dreamspace.academy"
+                  full_name: "Voter One"
+                  avatar_url: null
+                  is_admin: false
+                  role: "student"
+                  role_approved: true
+                  is_admin_created: false
+                  created_at: "2026-06-11T13:40:00Z"
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+    patch:
+      summary: Update User Profile
+      description: |
+        Update profile fields.
+        *   **Standard users** can only edit fields on their own profile (`auth.uid() = id`), excluding `role`, `role_approved`, and `is_admin`.
+        *   **Administrators** can update any profile column (e.g. set `role_approved = true`).
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Filter query mapping the target profile to update
+          schema:
+            type: string
+            example: eq.77d24a87-17cb-4b36-93ad-e53bfa70d10b
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                  example: Updated User Name
+                role:
+                  type: string
+                  enum: [student, staff]
+                  description: "Cannot be modified by standard users (requires admin)."
+                role_approved:
+                  type: boolean
+                  description: "Allows admins to approve staff roles."
+            example:
+              role_approved: true
+      responses:
+        '204':
+          description: Updated successfully. No content returned.
+        '400':
+          description: Bad request (e.g., Domain constraint verification failed).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostgrestError'
+              example:
+                code: "23514"
+                message: "new row for relation \"profiles\" violates check constraint \"dreamspace_email_check\""
+                details: "Failing row contains (77d24a87-17cb-4b36-93ad-e53bfa70d10b, guest@gmail.com, Guest User, null, f, student, t, f, 2026-06-11 13:45:00+00)."
+                hint: null
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /rest/v1/portfolios:
+    get:
+      summary: Query Student Portfolios
+      description: Approved students, staff, and admins can view portfolio submissions. Unapproved users are rejected.
+      parameters:
+        - name: select
+          in: query
+          description: Wildcard or relation expansion (e.g., to join creator profile details).
+          schema:
+            type: string
+            example: "id,title,portfolio_url,description,user_id,profiles(full_name,email)"
+        - name: user_id
+          in: query
+          description: Filter by the student profile UUID.
+          schema:
+            type: string
+            example: eq.14a1bd6c-7583-45b8-85ee-7e606e465915
+      responses:
+        '200':
+          description: Returns array of student portfolios.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Portfolio'
+              example:
+                - id: "b2bc983c-1b77-4b72-b7e6-231a4c9c1071"
+                  user_id: "14a1bd6c-7583-45b8-85ee-7e606e465915"
+                  title: "DreamSpace Academy Voting Portal"
+                  description: "Secure, real-time ranked-choice voting platform for portfolio showcases."
+                  portfolio_url: "https://dreamspace-voting.vercel.app"
+                  screenshot_url: null
+                  created_at: "2026-06-11T13:48:00Z"
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+    post:
+      summary: Upload New Student Portfolio
+      description: |
+        Create a new portfolio link submission.
+        *   Restricted to approved Students (`role = 'student'` and `role_approved = true`).
+        *   Only one portfolio link can be registered per profile (enforced by DB unique key).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - title
+                - description
+                - portfolio_url
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: Active student UUID matching auth user.
+                  example: 14a1bd6c-7583-45b8-85ee-7e606e465915
+                title:
+                  type: string
+                  example: DreamSpace Academy Voting Portal
+                description:
+                  type: string
+                  example: Secure, real-time ranked-choice voting platform.
+                portfolio_url:
+                  type: string
+                  format: uri
+                  example: https://dreamspace-voting.vercel.app
+            example:
+              user_id: 14a1bd6c-7583-45b8-85ee-7e606e465915
+              title: DreamSpace Academy Voting Portal
+              description: Secure, real-time ranked-choice voting platform.
+              portfolio_url: https://dreamspace-voting.vercel.app
+      responses:
+        '201':
+          description: Portfolio uploaded successfully.
+        '400':
+          description: Schema validation constraints failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostgrestError'
+        '409':
+          description: "Duplicate portfolio uploaded (Limit: one per student)."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostgrestError'
+              example:
+                code: "23505"
+                message: "duplicate key value violates unique constraint \"portfolios_user_id_key\""
+                details: "Key (user_id)=(14a1bd6c-7583-45b8-85ee-7e606e465915) already exists."
+                hint: null
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+    patch:
+      summary: Update Portfolio Submission
+      description: Allows approved students to update title, description, or URLs for their submitted portfolio.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Portfolio record UUID filter.
+          schema:
+            type: string
+            example: eq.b2bc983c-1b77-4b72-b7e6-231a4c9c1071
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                portfolio_url:
+                  type: string
+                  format: uri
+            example:
+              title: Updated Portfolio Title
+      responses:
+        '204':
+          description: Updated successfully.
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /rest/v1/votes:
+    get:
+      summary: Retrieve User Ballots (Strict Anonymity)
+      description: |
+        Queries cast ballot records.
+        *   **Students can only read their own votes** (`auth.uid() = voter_id`).
+        *   **Administrators and staff do NOT have direct read access to this table.** Direct queries return empty results or are denied by PostgreSQL RLS.
+      parameters:
+        - name: voter_id
+          in: query
+          required: true
+          description: Target voter profile UUID.
+          schema:
+            type: string
+            example: eq.14a1bd6c-7583-45b8-85ee-7e606e465915
+      responses:
+        '200':
+          description: Returns the user's ballot array.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Vote'
+              example:
+                - id: "ecb46571-0021-4cf1-8c44-b040bf5e227a"
+                  voter_id: "14a1bd6c-7583-45b8-85ee-7e606e465915"
+                  portfolio_id: "b2bc983c-1b77-4b72-b7e6-231a4c9c1071"
+                  rank: 1
+                  points: 5
+                  created_at: "2026-06-11T15:00:00Z"
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+    post:
+      summary: Cast Ranked Ballots
+      description: |
+        Commit ranked choice selections to the voting ledger.
+        *   Only permitted for approved Students (`role = 'student'` and `role_approved = true`).
+        *   Only allowed while `results_released` in system settings is `false`.
+        *   Rank and points must align correctly (1st Choice = 5pts, 2nd Choice = 3pts, 3rd Choice = 2pts).
+        *   Voter cannot select the same portfolio multiple times, nor assign the same rank multiple times.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              maxItems: 3
+              items:
+                type: object
+                required:
+                  - voter_id
+                  - portfolio_id
+                  - rank
+                  - points
+                properties:
+                  voter_id:
+                    type: string
+                    format: uuid
+                    example: 14a1bd6c-7583-45b8-85ee-7e606e465915
+                  portfolio_id:
+                    type: string
+                    format: uuid
+                    example: b2bc983c-1b77-4b72-b7e6-231a4c9c1071
+                  rank:
+                    type: integer
+                    enum: [1, 2, 3]
+                    description: Choice hierarchy.
+                    example: 1
+                  points:
+                    type: integer
+                    enum: [5, 3, 2]
+                    description: Predefined points for rank.
+                    example: 5
+            example:
+              - voter_id: "14a1bd6c-7583-45b8-85ee-7e606e465915"
+                portfolio_id: "b2bc983c-1b77-4b72-b7e6-231a4c9c1071"
+                rank: 1
+                points: 5
+              - voter_id: "14a1bd6c-7583-45b8-85ee-7e606e465915"
+                portfolio_id: "d4fe93cc-0e11-4011-8288-e9f0bf5ea87f"
+                rank: 2
+                points: 3
+      responses:
+        '201':
+          description: Ballot cast successfully.
+        '400':
+          description: Validation constraint violation (e.g. Rank/points matching rule, or voting locked).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostgrestError'
+              example:
+                code: "23514"
+                message: "new row for relation \"votes\" violates check constraint \"rank_points_match\""
+                details: "Failing row contains (ecb46571-0021-4cf1-8c44-b040bf5e227a, 14a1bd6c-7583-45b8-85ee-7e606e465915, b2bc983c-1b77-4b72-b7e6-231a4c9c1071, 1, 3, 2026-06-11T15:00:00Z)."
+                hint: null
+        '422':
+          description: Voting rules constraints violated (e.g. duplicates).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostgrestError'
+              example:
+                code: "23505"
+                message: "duplicate key value violates unique constraint \"unique_voter_rank\""
+                details: "Key (voter_id, rank)=(14a1bd6c-7583-45b8-85ee-7e606e465915, 1) already exists."
+                hint: null
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+    delete:
+      summary: Reset Voter Ballot
+      description: Deletes all previous votes cast by the student before submitting a new ballot vector.
+      parameters:
+        - name: voter_id
+          in: query
+          required: true
+          description: Active student voter UUID filter.
+          schema:
+            type: string
+            example: eq.14a1bd6c-7583-45b8-85ee-7e606e465915
+      responses:
+        '204':
+          description: Ballot deleted/reset successfully.
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+
+  /rest/v1/system_settings:
+    get:
+      summary: Fetch System Settings
+      description: Anyone can read settings variables (e.g., results released toggle).
+      responses:
+        '200':
+          description: Returns settings key-value arrays.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SystemSetting'
+              example:
+                - key: "results_released"
+                  value: false
+                - key: "voting_allowed"
+                  value: true
+    patch:
+      summary: Toggle Global Settings
+      description: Allows administrators to modify application toggles (e.g. live voting toggle, results release).
+      parameters:
+        - name: key
+          in: query
+          required: true
+          description: Setting variable key filter.
+          schema:
+            type: string
+            example: eq.results_released
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - value
+              properties:
+                value:
+                  type: boolean
+                  description: Target state boolean value.
+                  example: true
+            example:
+              value: true
+      responses:
+        '204':
+          description: Setting toggled successfully.
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+
+  # --- DATABASE AGGREGATE VIEWS ---
+  /rest/v1/voting_stats:
+    get:
+      summary: Read Activity Metrics (Anonymized View)
+      description: |
+        Returns macro turnout telemetry. No individual ballot connections are revealed.
+        *   Restricted to approved Staff (`role = 'staff'` and `role_approved = true`) and Admins.
+      responses:
+        '200':
+          description: Turnout count aggregations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VotingStats'
+              example:
+                - total_voters: 34
+                  total_votes_cast: 102
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+
+  /rest/v1/results_view:
+    get:
+      summary: Retrieve Live Leaderboard Scoreboard (View)
+      description: |
+        Returns total points per portfolio, ordered descending.
+        *   Accessible to admins.
+        *   Only accessible to students/staff if `results_released` is `true`.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Page/ranking limit (e.g., limit output to top 3 for top three scoreboard).
+          schema:
+            type: integer
+            example: 3
+      responses:
+        '200':
+          description: Scoreboard records.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResultsView'
+              example:
+                - portfolio_id: "b2bc983c-1b77-4b72-b7e6-231a4c9c1071"
+                  title: "DreamSpace Academy Voting Portal"
+                  portfolio_url: "https://dreamspace-voting.vercel.app"
+                  total_points: 125
+                - portfolio_id: "d4fe93cc-0e11-4011-8288-e9f0bf5ea87f"
+                  title: "Alternate Candidate Submission"
+                  portfolio_url: "https://candidate-two.vercel.app"
+                  total_points: 92
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: apikey
+      description: Supabase anonymous API key.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: GoTrue authorization JSON Web Token.
+
+  responses:
+    401Unauthorized:
+      description: Authorization credentials (Bearer JWT or apikey) are missing or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PostgrestError'
+          example:
+            code: "PGRST301"
+            message: "JWToken is expired or invalid"
+            details: null
+            hint: null
+    403Forbidden:
+      description: Insufficient database Row-Level Security (RLS) privileges for this action.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PostgrestError'
+          example:
+            code: "42501"
+            message: "permission denied for table votes"
+            details: null
+            hint: null
+
+  schemas:
+    # --- AUTH SCHEMAS ---
+    AuthSession:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+        - refresh_token
+        - user
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: bearer
+        expires_in:
+          type: integer
+          example: 3600
+        refresh_token:
+          type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            aud:
+              type: string
+            role:
+              type: string
+            email:
+              type: string
+            email_confirmed_at:
+              type: string
+              format: date-time
+            phone:
+              type: string
+            last_sign_in_at:
+              type: string
+              format: date-time
+            user_metadata:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                is_admin_created:
+                  type: boolean
+
+    AuthError:
+      type: object
+      required:
+        - error
+        - error_description
+      properties:
+        error:
+          type: string
+          description: Error type identifier
+        error_description:
+          type: string
+          description: Human-readable error details.
+
+    # --- DATABASE SCHEMAS ---
+    Profile:
+      type: object
+      required:
+        - id
+        - email
+        - is_admin
+        - role_approved
+        - is_admin_created
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Matching Supabase auth user UUID.
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          format: uri
+          nullable: true
+        is_admin:
+          type: boolean
+          default: false
+        role:
+          type: string
+          enum: [student, staff, admin]
+          nullable: true
+        role_approved:
+          type: boolean
+          default: false
+        is_admin_created:
+          type: boolean
+          default: false
+        created_at:
+          type: string
+          format: date-time
+
+    Portfolio:
+      type: object
+      required:
+        - id
+        - user_id
+        - title
+        - description
+        - portfolio_url
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: Submitting student profile UUID references public.profiles(id).
+        title:
+          type: string
+        description:
+          type: string
+        portfolio_url:
+          type: string
+          format: uri
+        screenshot_url:
+          type: string
+          format: uri
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Vote:
+      type: object
+      required:
+        - id
+        - voter_id
+        - portfolio_id
+        - rank
+        - points
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        voter_id:
+          type: string
+          format: uuid
+          description: Voting student profile UUID.
+        portfolio_id:
+          type: string
+          format: uuid
+          description: Voted student portfolio UUID.
+        rank:
+          type: integer
+          enum: [1, 2, 3]
+          description: Rank choice selection.
+        points:
+          type: integer
+          enum: [5, 3, 2]
+          description: "Points awarded (match constraint: 1st=5p, 2nd=3p, 3rd=2p)."
+        created_at:
+          type: string
+          format: date-time
+
+    SystemSetting:
+      type: object
+      required:
+        - key
+        - value
+      properties:
+        key:
+          type: string
+          description: Setting configuration key descriptor.
+        value:
+          type: boolean
+          description: Value stored for this trigger state setting.
+
+    VotingStats:
+      type: object
+      required:
+        - total_voters
+        - total_votes_cast
+      properties:
+        total_voters:
+          type: integer
+          description: Unique voters who have submitted a ballot vector.
+        total_votes_cast:
+          type: integer
+          description: Aggregate votes cast.
+
+    ResultsView:
+      type: object
+      required:
+        - portfolio_id
+        - title
+        - portfolio_url
+        - total_points
+      properties:
+        portfolio_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        portfolio_url:
+          type: string
+          format: uri
+        total_points:
+          type: integer
+          description: Cumulative scoreboard sum derived from ballot weights.
+
+    PostgrestError:
+      type: object
+      required:
+        - code
+        - message
+        - details
+        - hint
+      properties:
+        code:
+          type: string
+          description: PostgreSQL SQLState code.
+        message:
+          type: string
+          description: Direct driver error message.
+        details:
+          type: string
+          nullable: true
+        hint:
+          type: string
+          nullable: true
