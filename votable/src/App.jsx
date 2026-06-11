@@ -701,7 +701,7 @@ export default function App() {
 
       <header style={{ width: '100%', maxWidth: '600px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
         <div style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '1px' }}>
-          <span style={{ color: 'var(--brand-purple)' }}>DREAMSPACE</span> <span style={{ color: 'var(--brand-orange)' }}>PORTAL</span>
+          <span style={{ color: 'var(--brand-purple)' }}>VOTABLE</span> <span style={{ color: 'var(--brand-orange)' }}>PORTAL</span>
         </div>
         {user && (
           <button type="button" onClick={handleLogOut} className="btn-liquid-glass" style={{ padding: '6px 12px', borderRadius: '20px' }}>Sign Out</button>
@@ -710,7 +710,7 @@ export default function App() {
       
       {currentView === 'LOGIN' && (
         <div className="glass-container">
-          <h2 style={{ marginBottom: '6px', textAlign: 'center' }}>Dreamspace Gateway</h2>
+          <h2 style={{ marginBottom: '6px', textAlign: 'center' }}>Votable Gateway</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '24px' }}>Electoral Verification Infrastructure</p>
           
           <button type="button" className="btn-primary" style={{ background: '#fff', color: '#000', border: '1px solid #d2d2d7', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '20px' }} onClick={handleGoogleLogin}>
