@@ -1,6 +1,6 @@
 # Student User Guide
 
-As a Student of DreamSpace Academy, you have the opportunity to showcase your portfolio project to your peers and cast your vote in the portfolio competition.
+As a Student of VOTABLE PORTAL Academy, you have the opportunity to showcase your portfolio project to your peers and cast your vote in the portfolio competition.
 
 ---
 

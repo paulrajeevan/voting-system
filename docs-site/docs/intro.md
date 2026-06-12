@@ -1,8 +1,11 @@
+---
+slug: /
+---
 # System Overview
 
-Welcome to the **DreamSpace Academy Portfolio Voting System** user documentation!
+Welcome to the **VOTABLE PORTAL Academy Portfolio Voting System** user documentation!
 
-This platform is a premium, device-responsive web application designed for students and staff of DreamSpace Academy. It allows students to submit their portfolio websites and participate in a 3-tier ranked-choice voting process to select their favorite designs, while staff and administrators oversee the activity and final score tallies.
+This platform is a premium, device-responsive web application designed for students and staff of VOTABLE PORTAL Academy. It allows students to submit their portfolio websites and participate in a 3-tier ranked-choice voting process to select their favorite designs, while staff and administrators oversee the activity and final score tallies.
 
 ---
 

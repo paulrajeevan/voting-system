@@ -1,6 +1,6 @@
 # Developer Reference Guide
 
-This document provides a technical overview of the **DreamSpace Portfolio Voting System** codebase, database schema, security rules, and testing standards.
+This document provides a technical overview of the **VOTABLE PORTAL Portfolio Voting System** codebase, database schema, security rules, and testing standards.
 
 ---
 

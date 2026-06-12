@@ -2,9 +2,9 @@
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'DreamSpace Portfolio Voting System',
+  title: 'VOTABLE PORTAL Portfolio Voting System',
   tagline: 'User Guide & Documentation',
-  url: 'https://dreamspace-voting.example.com',
+  url: 'https://votableportal-voting.example.com',
   baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -41,9 +41,9 @@ const config = {
         respectPrefersColorScheme: false,
       },
       navbar: {
-        title: 'DreamSpace Voting Docs',
+        title: 'VOTABLE PORTAL Voting Docs',
         logo: {
-          alt: 'DreamSpace Logo',
+          alt: 'VOTABLE PORTAL Logo',
           src: 'img/logo.svg',
         },
         items: [
@@ -57,7 +57,7 @@ const config = {
       footer: {
         style: 'light',
         links: [],
-        copyright: `Copyright © ${new Date().getFullYear()} DreamSpace Academy. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} VOTABLE PORTAL Academy. Built with Docusaurus.`,
       },
       prism: {
         theme: require('prism-react-renderer').themes.github,

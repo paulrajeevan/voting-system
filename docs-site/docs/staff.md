@@ -1,6 +1,6 @@
 # Staff User Guide
 
-Staff members of DreamSpace Academy act as monitors of the portfolio voting process. This is a read-only role designed to oversee activity without interfering with candidate uploads or ballot submissions.
+Staff members of VOTABLE PORTAL Academy act as monitors of the portfolio voting process. This is a read-only role designed to oversee activity without interfering with candidate uploads or ballot submissions.
 
 ---
 
@@ -34,7 +34,7 @@ Below the metrics panel, you can view a directory of all candidate portfolios:
 ---
 
 ## 🔐 Step 3: Anonymity Safeguards
-DreamSpace Academy enforces a strict voter privacy standard. As a staff monitor, it is important to understand how these protections are structured:
+VOTABLE PORTAL Academy enforces a strict voter privacy standard. As a staff monitor, it is important to understand how these protections are structured:
 
 - **No Ballot Auditing:** There is no interface or database route that reveals which student voted for which portfolio.
 - **Database Row Level Security (RLS):** Supabase restricts direct reads on the raw `votes` table. Only the student who cast a vote can read their own row.
