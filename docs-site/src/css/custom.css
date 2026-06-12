@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Brand Theme Colors */
+  --ifm-color-primary: #7B1FA2;       /* Deep Purple */
+  --ifm-color-primary-dark: #6a1a8c;
+  --ifm-color-primary-darker: #641984;
+  --ifm-color-primary-darkest: #52146d;
+  --ifm-color-primary-light: #8c2cb5;
+  --ifm-color-primary-lighter: #9534bd;
+  --ifm-color-primary-lightest: #b257d9;
+  
+  --color-accent: #FF6F00;            /* Accent Orange */
+  --color-accent-light: #FFF3E0;      /* Light Orange background */
+  
+  --ifm-font-family-base: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  --ifm-background-color: #FDFBFD;    /* Premium off-white background */
+  --ifm-navbar-background-color: #FFFFFF;
+  --ifm-card-background-color: #FFFFFF;
+  --ifm-heading-color: #212121;
+}
+
+/* Custom styling to match premium aesthetics */
+.navbar {
+  box-shadow: 0 2px 8px rgba(123, 31, 162, 0.05);
+  border-bottom: 1px solid #E0E0E0;
+}
+
+.navbar__brand {
+  font-weight: 700;
+  color: var(--ifm-color-primary);
+}
+
+.menu__link--active {
+  background-color: var(--ifm-color-primary-lightest) !important;
+  color: var(--ifm-color-primary-darkest) !important;
+  font-weight: 600;
+}
+
+.theme-doc-sidebar-item-link-active {
+  border-left: 3px solid var(--color-accent);
+}
+
+.alert--info {
+  border-left: 5px solid var(--ifm-color-primary);
+}
+
+.alert--warning {
+  border-left: 5px solid var(--color-accent);
+}
+
+code {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
