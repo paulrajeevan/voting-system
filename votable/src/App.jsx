@@ -1017,6 +1017,32 @@ export default function App() {
           <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '24px' }}>🔒 Strict Anonymity Protocol: No voter profiles or clear individual choices are exposed.</p>
         </div>
       )}
+
+      <footer style={{
+        width: '100%',
+        textAlign: 'center',
+        padding: '18px 0 22px',
+        fontSize: '0.75rem',
+        color: 'var(--text-muted)',
+        zIndex: 10,
+        marginTop: 'auto'
+      }}>
+        <a
+          href="https://votable-user-guide.vercel.app/developers"
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            color: 'var(--brand-purple)',
+            fontWeight: 600,
+            textDecoration: 'none',
+            letterSpacing: '0.3px'
+          }}
+        >
+          📖 Developer Reference
+        </a>
+        <span style={{ margin: '0 8px', opacity: 0.4 }}>·</span>
+        <span>VOTABLE PORTAL © {new Date().getFullYear()}</span>
+      </footer>
     </>
   );
 }
