@@ -66,7 +66,7 @@ To comply with the requirement of strict voter privacy, individual ballots are s
 2. **`public.results_view` (All Approved Roles):**
    - Serves the scoreboard. Returns only the fields: `portfolio title` and `total_points`.
    - Ordered by `total_points DESC` where:
-     $$\text{Score} = (Rank_1 \times 5) + (Rank_2 \times 3) + (Rank_3 \times 2)$$
+     `Score = (1st Choice × 5) + (2nd Choice × 3) + (3rd Choice × 2)`
 
 ---
 
