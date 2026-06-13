@@ -1,0 +1,23 @@
+{
+  "id": "students",
+  "title": "Student User Guide",
+  "description": "As a Student of VOTABLE PORTAL Academy, you have the opportunity to showcase your portfolio project to your peers and cast your vote in the portfolio competition.",
+  "source": "@site/docs/students.md",
+  "sourceDirName": ".",
+  "slug": "/students",
+  "permalink": "/students",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Overview",
+    "permalink": "/"
+  },
+  "next": {
+    "title": "Staff Guide",
+    "permalink": "/staff"
+  }
+}

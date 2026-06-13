@@ -1,0 +1,19 @@
+{
+  "id": "developers",
+  "title": "Developer Reference Guide",
+  "description": "This document provides a technical overview of the VOTABLE PORTAL Portfolio Voting System codebase, database schema, security rules, and testing standards.",
+  "source": "@site/docs/developers.md",
+  "sourceDirName": ".",
+  "slug": "/developers",
+  "permalink": "/developers",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Administrator Guide",
+    "permalink": "/admins"
+  }
+}

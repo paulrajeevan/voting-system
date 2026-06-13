@@ -1,0 +1,23 @@
+{
+  "id": "admins",
+  "title": "Administrator User Guide",
+  "description": "Administrators are responsible for managing the platform settings, approving staff roles, provisioning accounts, and controlling when final voting results are made public.",
+  "source": "@site/docs/admins.md",
+  "sourceDirName": ".",
+  "slug": "/admins",
+  "permalink": "/admins",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Staff Guide",
+    "permalink": "/staff"
+  },
+  "next": {
+    "title": "Developer Reference",
+    "permalink": "/developers"
+  }
+}
