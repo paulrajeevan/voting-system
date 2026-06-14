@@ -157,3 +157,33 @@ input:focus, textarea:focus, select:focus {
 }
 .status-live { background: rgba(40, 199, 111, 0.15); color: #28c76f; }
 .status-locked { background: rgba(255, 111, 0, 0.15); color: var(--brand-orange); }
+
+/* SCREEN READER ONLY UTILITY (ACCESSIBILITY COMPLIANCE) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* TOAST SLIDE DOWN ANIMATION */
+@keyframes slideDown {
+  from { transform: translate(-50%, -20px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+/* RESPONSIVE LAYOUT SCALING FOR NARROW MOBILE VIEWPORTS */
+@media (max-width: 480px) {
+  .glass-container {
+    padding: 24px 16px;
+  }
+  .btn-liquid-glass {
+    font-size: 0.7rem;
+    padding: 10px 4px;
+  }
+}

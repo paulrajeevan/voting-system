@@ -45,6 +45,22 @@ export default function App() {
   const [userProfile, setUserProfile] = useState(null);
   const [currentView, setCurrentView] = useState('LOGIN'); 
   const [loading, setLoading] = useState(true);
+
+  // Custom accessible toast state
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+  };
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
   
   // Form State Vectors
   const [loginEmail, setLoginEmail] = useState('');
@@ -222,7 +238,7 @@ export default function App() {
         const isAdminCreated = authUser.user_metadata?.is_admin_created;
         if (!isAdminCreated) {
           await supabase.auth.signOut();
-          alert("Access Denied: Connection restricted exclusively to @dreamspace.academy domains.");
+          showToast("Access Denied: Connection restricted exclusively to @dreamspace.academy domains.", "error");
         }
       }
     }
@@ -418,7 +434,7 @@ export default function App() {
         redirectTo: window.location.origin
       }
     });
-    if (error) alert(`OAuth Error: ${error.message}`);
+    if (error) showToast(`OAuth Error: ${error.message}`, "error");
   };
 
   const handleCredentialsLogin = async (e) => {
@@ -431,7 +447,7 @@ export default function App() {
     
     if (error) {
       setLoading(false);
-      alert(`Authentication Failure: ${error.message}`);
+      showToast(`Authentication Failure: ${error.message}`, "error");
     }
   };
 
@@ -449,7 +465,7 @@ export default function App() {
 
     if (error) {
       setLoading(false);
-      alert(`Onboarding selection failed: ${error.message}`);
+      showToast(`Onboarding selection failed: ${error.message}`, "error");
       return;
     }
 
@@ -498,11 +514,11 @@ export default function App() {
 
     setLoading(false);
     if (err) {
-      alert(`Portfolio Submission Failed: ${err.message}`);
+      showToast(`Portfolio Submission Failed: ${err.message}`, "error");
     } else {
       setPortfolio(prev => ({ ...prev, url: formattedUrl, uploaded: true }));
       await fetchCandidates();
-      alert("Portfolio submitted successfully! Entrance to voting zone authorized.");
+      showToast("Portfolio submitted successfully! Entrance to voting zone authorized.", "success");
     }
   };
 
@@ -532,7 +548,7 @@ export default function App() {
 
   const handleBallotSubmit = async () => {
     if (!ballot.points5 && !ballot.points3 && !ballot.points2) {
-      alert("Ballot Invalid: You must select at least one choice (1st, 2nd, or 3rd) before submitting.");
+      showToast("Ballot Invalid: You must select at least one choice (1st, 2nd, or 3rd) before submitting.", "error");
       return;
     }
 
@@ -545,7 +561,7 @@ export default function App() {
 
     if (deleteError) {
       setLoading(false);
-      alert(`Ballot Reset Failed: ${deleteError.message}`);
+      showToast(`Ballot Reset Failed: ${deleteError.message}`, "error");
       return;
     }
 
@@ -567,9 +583,9 @@ export default function App() {
 
     setLoading(false);
     if (insertError) {
-      alert(`Ballot Submission Failed: ${insertError.message}`);
+      showToast(`Ballot Submission Failed: ${insertError.message}`, "error");
     } else {
-      alert("Ballot permanently committed to secure ledger database array!");
+      showToast("Ballot permanently committed to secure ledger database array!", "success");
       if (systemSettings.results_released) {
         await loadLeaderboard();
       }
@@ -587,7 +603,7 @@ export default function App() {
       setLoginPassword('');
       setCurrentView('LOGIN');
     } else {
-      alert(`Logout Error: ${error.message}`);
+      showToast(`Logout Error: ${error.message}`, "error");
     }
     setLoading(false);
   };
@@ -600,7 +616,7 @@ export default function App() {
       .eq('key', key);
     
     if (error) {
-      alert(`Failed to update setting: ${error.message}`);
+      showToast(`Failed to update setting: ${error.message}`, "error");
     } else {
       setSystemSettings(prev => ({ ...prev, [key]: checked }));
     }
@@ -613,10 +629,10 @@ export default function App() {
       .eq('id', staffId);
 
     if (error) {
-      alert(`Approval failure: ${error.message}`);
+      showToast(`Approval failure: ${error.message}`, "error");
     } else {
       setPendingStaff(prev => prev.filter(p => p.id !== staffId));
-      alert("Staff access authorized successfully!");
+      showToast("Staff access authorized successfully!", "success");
       // Refresh admin dashboard metrics
       const { count: totalStudents } = await supabase
         .from('profiles')
@@ -656,9 +672,9 @@ export default function App() {
 
     setLoading(false);
     if (error) {
-      alert(`Provisioning Failed: ${error.message}`);
+      showToast(`Provisioning Failed: ${error.message}`, "error");
     } else {
-      alert(`Provisioning successful! Account constructed for non-domain profile: ${provisionForm.email}`);
+      showToast(`Provisioning successful! Account constructed for non-domain profile: ${provisionForm.email}`, "success");
       setProvisionForm({ name: '', email: '', password: '' });
       
       const { count: totalStudents } = await supabase
@@ -699,6 +715,55 @@ export default function App() {
         <div className="ambient-blob blob-orange"></div>
       </div>
 
+      {toast && (
+        <div 
+          id="toast-notification"
+          role="alert" 
+          aria-live="assertive" 
+          className={`toast-banner toast-${toast.type}`}
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            padding: '12px 24px',
+            borderRadius: '12px',
+            background: toast.type === 'error' ? '#d32f2f' : toast.type === 'success' ? '#28c76f' : '#7B1FA2',
+            color: '#fff',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontWeight: 500,
+            fontSize: '0.9rem',
+            maxWidth: '90%',
+            width: 'max-content',
+            animation: 'slideDown 0.3s ease'
+          }}
+        >
+          <span>{toast.type === 'error' ? '❌' : toast.type === 'success' ? '✅' : 'ℹ️'}</span>
+          <span>{toast.message}</span>
+          <button 
+            type="button" 
+            onClick={() => setToast(null)} 
+            aria-label="Close notification"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#fff',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              padding: '0 4px',
+              fontWeight: 'bold',
+              marginLeft: '10px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <header style={{ width: '100%', maxWidth: '600px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
         <div style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '1px' }}>
           <span style={{ color: 'var(--brand-purple)' }}>VOTABLE</span> <span style={{ color: 'var(--brand-orange)' }}>PORTAL</span>
@@ -725,12 +790,14 @@ export default function App() {
 
           <form onSubmit={handleCredentialsLogin}>
             <div style={{ marginBottom: '12px' }}>
-              <input type="text" placeholder="Username or Domain Email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required />
+              <label htmlFor="loginEmail" className="sr-only">Username or Domain Email</label>
+              <input id="loginEmail" type="text" placeholder="Username or Domain Email" aria-label="Username or Domain Email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required />
             </div>
             <div style={{ marginBottom: '20px' }}>
-              <input type="password" placeholder="Access Password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
+              <label htmlFor="loginPassword" className="sr-only">Access Password</label>
+              <input id="loginPassword" type="password" placeholder="Access Password" aria-label="Access Password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
             </div>
-            <button type="submit" className="btn-primary">Authenticate Identity</button>
+            <button id="loginSubmitBtn" type="submit" className="btn-primary">Authenticate Identity</button>
           </form>
         </div>
       )}
@@ -763,12 +830,16 @@ export default function App() {
               <p className="subtitle">Please provide your live workspace criteria sequentially: Name, URL, and Description.</p>
               <form onSubmit={handlePortfolioSubmit}>
                 <div style={{ marginBottom: '12px' }}>
-                  <input type="text" placeholder="Portfolio / Application Name" value={portfolio.title} onChange={(e) => setPortfolio({ ...portfolio, title: e.target.value })} required />
+                  <label htmlFor="portfolioTitle" className="sr-only">Portfolio / Application Name</label>
+                  <input id="portfolioTitle" type="text" placeholder="Portfolio / Application Name" aria-label="Portfolio or Application Name" value={portfolio.title} onChange={(e) => setPortfolio({ ...portfolio, title: e.target.value })} required />
                 </div>
                 <div style={{ marginBottom: urlError ? '4px' : '12px' }}>
+                  <label htmlFor="portfolioUrl" className="sr-only">Portfolio URL</label>
                   <input
+                    id="portfolioUrl"
                     type="text"
                     placeholder="e.g. https://myportfolio.vercel.app"
+                    aria-label="Portfolio URL"
                     value={portfolio.url}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -783,7 +854,7 @@ export default function App() {
                     required
                   />
                   {urlError && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', marginBottom: '8px' }}>
+                    <div role="alert" aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', marginBottom: '8px' }}>
                       <span style={{ fontSize: '1rem' }}>⚠️</span>
                       <span style={{ fontSize: '0.78rem', color: '#d32f2f', fontWeight: 500 }}>{urlError}</span>
                     </div>
@@ -793,9 +864,10 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{ marginBottom: '20px' }}>
-                  <textarea placeholder="Brief abstract overview description..." rows="3" value={portfolio.description} onChange={(e) => setPortfolio({ ...portfolio, description: e.target.value })} required />
+                  <label htmlFor="portfolioDescription" className="sr-only">Brief abstract overview description</label>
+                  <textarea id="portfolioDescription" placeholder="Brief abstract overview description..." aria-label="Brief abstract overview description" rows="3" value={portfolio.description} onChange={(e) => setPortfolio({ ...portfolio, description: e.target.value })} required />
                 </div>
-                <button type="submit" className="btn-primary">Register Workspace Profile</button>
+                <button id="portfolioSubmitBtn" type="submit" className="btn-primary">Register Workspace Profile</button>
               </form>
             </div>
           ) : (
@@ -853,7 +925,7 @@ export default function App() {
                 if (systemSettings.results_released) {
                   await loadLeaderboard();
                 } else {
-                  alert("Electoral metrics are unreleased. Scoring leaderboard is locked by administrator.");
+                  showToast("Electoral metrics are unreleased. Scoring leaderboard is locked by administrator.", "error");
                 }
               }}>Jump to Results View Panel</button>
               
@@ -930,16 +1002,16 @@ export default function App() {
           <div style={{ background: '#fff', padding: '16px', borderRadius: '16px', marginBottom: '20px' }}>
             <h3 style={{ fontSize: '0.9rem', marginBottom: '12px' }}>System State Triggers</h3>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.9rem' }}>Authorize Live Voting Booth</span>
-              <input type="checkbox" style={{ width: '24px', height: '24px', cursor: 'pointer' }} checked={systemSettings.voting_allowed} onChange={(e) => handleSettingToggle('voting_allowed', e.target.checked)} />
+              <label htmlFor="votingAllowed" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Authorize Live Voting Booth</label>
+              <input id="votingAllowed" type="checkbox" style={{ width: '24px', height: '24px', cursor: 'pointer' }} checked={systemSettings.voting_allowed} onChange={(e) => handleSettingToggle('voting_allowed', e.target.checked)} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.9rem' }}>Release Scoring Leaderboard</span>
-              <input type="checkbox" style={{ width: '24px', height: '24px', cursor: 'pointer' }} checked={systemSettings.results_released} onChange={(e) => handleSettingToggle('results_released', e.target.checked)} />
+              <label htmlFor="resultsReleased" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Release Scoring Leaderboard</label>
+              <input id="resultsReleased" type="checkbox" style={{ width: '24px', height: '24px', cursor: 'pointer' }} checked={systemSettings.results_released} onChange={(e) => handleSettingToggle('results_released', e.target.checked)} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.9rem' }}>Limit Leaderboard to Top 3 Profiles</span>
-              <input type="checkbox" style={{ width: '24px', height: '24px', cursor: 'pointer' }} checked={systemSettings.limit_top_three} onChange={(e) => handleSettingToggle('limit_top_three', e.target.checked)} />
+              <label htmlFor="limitTopThree" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Limit Leaderboard to Top 3 Profiles</label>
+              <input id="limitTopThree" type="checkbox" style={{ width: '24px', height: '24px', cursor: 'pointer' }} checked={systemSettings.limit_top_three} onChange={(e) => handleSettingToggle('limit_top_three', e.target.checked)} />
             </div>
           </div>
 
@@ -960,10 +1032,19 @@ export default function App() {
 
           <form style={{ background: '#fff', padding: '16px', borderRadius: '16px', marginBottom: '20px' }} onSubmit={handleProvisionStudent}>
             <h3 style={{ fontSize: '0.9rem', marginBottom: '10px' }}>Provision Student Bypass Credentials</h3>
-            <input type="text" placeholder="Full Name" style={{ marginBottom: '8px', padding: '10px' }} value={provisionForm.name} onChange={e => setProvisionForm({ ...provisionForm, name: e.target.value })} required />
-            <input type="email" placeholder="Username / Email" style={{ marginBottom: '8px', padding: '10px' }} value={provisionForm.email} onChange={e => setProvisionForm({ ...provisionForm, email: e.target.value })} required />
-            <input type="password" placeholder="Temporary Passcode" style={{ marginBottom: '12px', padding: '10px' }} value={provisionForm.password} onChange={e => setProvisionForm({ ...provisionForm, password: e.target.value })} required />
-            <button type="submit" className="btn-primary" style={{ padding: '10px' }}>Deploy Profile Access</button>
+            <div style={{ marginBottom: '8px' }}>
+              <label htmlFor="provisionName" className="sr-only">Full Name</label>
+              <input id="provisionName" type="text" placeholder="Full Name" aria-label="Full Name" style={{ padding: '10px' }} value={provisionForm.name} onChange={e => setProvisionForm({ ...provisionForm, name: e.target.value })} required />
+            </div>
+            <div style={{ marginBottom: '8px' }}>
+              <label htmlFor="provisionEmail" className="sr-only">Username / Email</label>
+              <input id="provisionEmail" type="email" placeholder="Username / Email" aria-label="Username or Email" style={{ padding: '10px' }} value={provisionForm.email} onChange={e => setProvisionForm({ ...provisionForm, email: e.target.value })} required />
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label htmlFor="provisionPassword" className="sr-only">Temporary Passcode</label>
+              <input id="provisionPassword" type="password" placeholder="Temporary Passcode" aria-label="Temporary Passcode" style={{ padding: '10px' }} value={provisionForm.password} onChange={e => setProvisionForm({ ...provisionForm, password: e.target.value })} required />
+            </div>
+            <button id="provisionSubmitBtn" type="submit" className="btn-primary" style={{ padding: '10px' }}>Deploy Profile Access</button>
           </form>
 
           <button type="button" className="btn-primary" style={{ background: '#e2e2e7', color: '#000' }} onClick={async () => {
