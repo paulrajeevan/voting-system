@@ -1,0 +1,23 @@
+{
+  "id": "staff",
+  "title": "Staff User Guide",
+  "description": "Staff members of VOTABLE PORTAL Academy act as monitors of the portfolio voting process. This is a read-only role designed to oversee activity without interfering with candidate uploads or ballot submissions.",
+  "source": "@site/docs/staff.md",
+  "sourceDirName": ".",
+  "slug": "/staff",
+  "permalink": "/staff",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Student Guide",
+    "permalink": "/students"
+  },
+  "next": {
+    "title": "Administrator Guide",
+    "permalink": "/admins"
+  }
+}
